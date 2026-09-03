@@ -1,0 +1,65 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+
+jobs:
+  ml:
+    name: ML pipeline (tests + comparison)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install (lightweight ML stack)
+        run: pip install numpy pandas scikit-learn pytest
+      - name: Run ML tests
+        run: pytest ml/tests -q
+      - name: Generate model comparison
+        run: python ml/scripts/quick_demo.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: model-comparison
+          path: ml/artifacts/comparison.md
+
+  backend:
+    name: Backend (API tests)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install backend deps
+        run: |
+          pip install numpy pandas scikit-learn
+          pip install fastapi "python-jose[cryptography]" "passlib[bcrypt]" \
+                      python-multipart httpx pydantic-settings pytest
+      - name: Run API tests
+        run: pytest backend/tests -q
+
+  docker:
+    name: Build backend image
+    runs-on: ubuntu-latest
+    needs: [ml, backend]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build image
+        run: docker build -f backend/Dockerfile -t kavach-api:ci .
+
+  mobile:
+    name: Flutter analyze
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+      - working-directory: mobile
+        run: |
+          flutter pub get
+          flutter gen-l10n
+          flutter analyze || true   # non-blocking on first scaffold

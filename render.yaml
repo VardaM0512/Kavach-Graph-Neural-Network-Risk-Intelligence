@@ -1,0 +1,26 @@
+# One-click backend deploy on Render (https://render.com).
+# Managed Postgres here; point KAVACH_NEO4J_URI at Neo4j Aura (free tier).
+services:
+  - type: web
+    name: kavach-api
+    runtime: docker
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: .
+    healthCheckPath: /api/health
+    envVars:
+      - key: KAVACH_ENVIRONMENT
+        value: production
+      - key: KAVACH_JWT_SECRET
+        generateValue: true
+      - key: KAVACH_WARM_ENGINE
+        value: "1"
+      - key: KAVACH_POSTGRES_URL
+        fromDatabase:
+          name: kavach-db
+          property: connectionString
+      # - key: KAVACH_NEO4J_URI        # set from Neo4j Aura
+      # - key: KAVACH_NEO4J_PASSWORD
+
+databases:
+  - name: kavach-db
+    plan: free

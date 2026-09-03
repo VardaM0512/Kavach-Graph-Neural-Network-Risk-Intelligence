@@ -1,0 +1,23 @@
+{
+  "@@locale": "hi",
+  "appTitle": "कवच",
+  "tagline": "कॉर्पोरेट जोखिम बुद्धिमत्ता",
+  "login": "साइन इन करें",
+  "email": "ईमेल",
+  "password": "पासवर्ड",
+  "dashboard": "डैशबोर्ड",
+  "trackedCompanies": "ट्रैक की गई कंपनियाँ",
+  "highRisk": "उच्च जोखिम",
+  "moderate": "मध्यम",
+  "lowRisk": "कम जोखिम",
+  "networkRisk": "नेटवर्क जोखिम",
+  "distressRisk": "संकट जोखिम",
+  "financialHealth": "वित्तीय स्वास्थ्य",
+  "whyIsRiskHigh": "जोखिम अधिक क्यों है?",
+  "scenario": "परिदृश्य",
+  "portfolio": "पोर्टफोलियो",
+  "alerts": "अलर्ट",
+  "networkGraph": "नेटवर्क ग्राफ़",
+  "askByVoice": "आवाज़ से पूछें",
+  "language": "भाषा"
+}

@@ -1,0 +1,23 @@
+{
+  "@@locale": "en",
+  "appTitle": "Kavach",
+  "tagline": "Corporate Risk Intelligence",
+  "login": "Sign in",
+  "email": "Email",
+  "password": "Password",
+  "dashboard": "Dashboard",
+  "trackedCompanies": "Tracked companies",
+  "highRisk": "High risk",
+  "moderate": "Moderate",
+  "lowRisk": "Low risk",
+  "networkRisk": "Network risk",
+  "distressRisk": "Distress risk",
+  "financialHealth": "Financial health",
+  "whyIsRiskHigh": "Why is risk high?",
+  "scenario": "Scenario",
+  "portfolio": "Portfolio",
+  "alerts": "Alerts",
+  "networkGraph": "Network graph",
+  "askByVoice": "Ask by voice",
+  "language": "Language"
+}
