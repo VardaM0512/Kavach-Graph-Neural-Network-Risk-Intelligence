@@ -99,14 +99,15 @@ DIAGRAMS: dict[str, str] = {
     F --> G
 """,
     "models": """flowchart TB
-    X["node features + edge_index"] --> TAB
+    X["node features + typed edge_index"] --> BASE
     X --> GNN
-    subgraph TAB["Tabular (own features only)"]
-      LR[LogReg] --- RF[RandomForest] --- XGB[XGBoost]
+    subgraph BASE["Baselines (own features only)"]
+      AZ[Altman Z-1968] --- LR[LogReg] --- RF[RandomForest] --- XGB[XGBoost]
     end
-    subgraph GNN["Graph (message passing)"]
-      GCN[GCN] --- SAGE[GraphSAGE] --- GAT[GAT attention]
+    subgraph GNN["Graph message passing"]
+      GCN[GCN] --- SAGE[GraphSAGE] --- GAT[GAT] --- RGCN[R-GCN relational]
     end
+    GNN --> HYB[Hybrid: graph emb + tabular -> GBDT]
     GNN --> HEAD["heads: distress + 3/6/12/24m"]
 """,
     "xai": """flowchart LR
@@ -296,6 +297,7 @@ def build():
         "Mobile · Backend · Risk Engine · ML pipeline · Graph data model",
         "Explainable AI · Network contagion · Scenario &amp; portfolio",
         "Voice &amp; multilingual pipeline · Security · Deployment",
+        "Grounded in 20+ research papers (see docs/RESEARCH.md)",
         "Rapid-fire Q&amp;A and “claims to avoid” guardrails",
     ]:
         story.append(Paragraph("● " + line, S["cover_li"]))
@@ -441,12 +443,22 @@ def build():
     story += bullets([
         "<b>GCN:</b> degree-normalised neighbour averaging — a strong, simple baseline.",
         "<b>GraphSAGE:</b> samples and aggregates neighbours; scales to large graphs.",
-        "<b>GAT:</b> learns attention weights, so a 48%-of-purchases supplier counts more than "
-        "a 2% one; attention doubles as an explanation signal.",
+        "<b>GAT:</b> learns attention weights, so a big supplier counts more than a tiny one; "
+        "attention doubles as an explanation signal.",
+        "<b>R-GCN (relational):</b> a separate transformation per relation type — the frontier "
+        "model; tops the scoreboard on PR-AUC / KS.",
+        "<b>Hybrid GNN + GBDT:</b> graph embedding + tabular features into a boosted tree — the "
+        "SOTA recipe at scale (Relational-GNN paper, 2026).",
     ], S)
-    story += [B("The repo ships production PyTorch Geometric models (ml/models/gnn.py) and a "
-                "dependency-light NumPy reference GNN (SGC-style) so the pipeline runs and "
-                "produces the scoreboard anywhere, including CI, without a GPU.")]
+    story += [B("Grounded in the literature (R-GCN, Schlichtkrull 2018; HGNN-EBP 2025; relational "
+                "GNN + ensemble 2026 — see docs/RESEARCH.md). The repo ships production PyTorch "
+                "Geometric models (GCN/GraphSAGE/GAT/RGCN), a NumPy reference GNN (SGC + "
+                "relational + hybrid) that runs anywhere, and the classic Altman Z-Score (1968) "
+                "baseline. Metrics follow the credit-risk literature: PR-AUC, KS, recall, "
+                "precision@k."),
+              callout("Don't over-claim the hybrid GNN+GBDT — it wins at scale (millions of "
+                      "nodes); on a few hundred synthetic nodes it under-fits versus a linear "
+                      "head. Report the regime honestly.", S, guard=True)]
 
     # 9
     story += [section(9, "Handling Class Imbalance", S),

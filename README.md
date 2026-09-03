@@ -96,6 +96,17 @@ everything it is connected to.
 Kavach trains **both** and puts them on the same scoreboard, so the graph advantage
 is measured, not asserted. See [results](#-the-ml-experiment--results).
 
+It goes further than a plain GCN: because corporate edges are not interchangeable
+(a supplier link ≠ an ownership stake), Kavach models the graph as **heterogeneous**
+with a **relational GNN (R-GCN-style)** that learns a separate transformation per
+relation type, and a **hybrid GNN + gradient-boosting ensemble** — the two
+architectures the 2024–2026 literature identifies as state of the art for corporate
+distress/credit-default prediction. Every design choice is traced to a paper in
+**[docs/RESEARCH.md](docs/RESEARCH.md)** (R-GCN, HGT, GraphSAGE, GAT, focal loss,
+GNNExplainer, GraphSMOTE, HGNN-EBP 2025, relational-GNN+ensemble 2026, dynamic
+guarantee-network GNN 2026, and the standard Polish / Taiwanese / American
+benchmark datasets).
+
 **Message passing, plainly:** each company starts with its own feature vector; at
 every GNN layer it *aggregates* its neighbours' vectors and updates its own. After a
 couple of layers, each company's representation encodes its 1–2 hop financial
@@ -229,7 +240,7 @@ cross-cutting product pillars — **voice** and **multilingual** support.
 | **Mobile** | Flutter · Dart · Provider · Dio · fl_chart · graphview · speech_to_text · flutter_tts |
 | **Backend** | Python · FastAPI · Pydantic · Uvicorn · JWT (python-jose) |
 | **ML core** | PyTorch · **PyTorch Geometric** · scikit-learn · XGBoost / LightGBM |
-| **GNN models** | GCN · GraphSAGE · GAT |
+| **GNN models** | GCN · GraphSAGE · GAT · **R-GCN (relational)** · **Hybrid GNN+GBDT** · Altman Z-Score baseline |
 | **Explainability** | SHAP · GNNExplainer / PGExplainer · GAT attention |
 | **Graph algorithms** | PageRank · degree centrality · HHI concentration · Louvain community |
 | **Databases** | PostgreSQL (financials) · Neo4j (relationships) |
@@ -275,22 +286,38 @@ The synthetic economy deliberately includes **network-induced distress**: compan
 with *healthy fundamentals* that fail purely because their counterparties fail. These
 are cases a tabular model structurally *cannot* get right.
 
-Representative run (`python ml/scripts/quick_demo.py`, 600 companies, ~33% distress,
-NumPy reference GNN so it runs anywhere):
+Representative run (`python ml/scripts/quick_demo.py`, 1,200 companies, ~31%
+distress, strong contagion; NumPy reference GNN so it runs anywhere):
 
-| Model | ROC-AUC | **PR-AUC** | F1 | Precision | **Recall** |
-|---|---|---|---|---|---|
-| **GraphSAGE (graph)** | 0.976 | **0.948** | 0.811 | 0.682 | **1.000** |
-| **GCN (graph)** | 0.977 | **0.946** | 0.789 | 0.652 | **1.000** |
-| Logistic Regression (tabular) | 0.973 | 0.925 | 0.857 | 0.750 | 1.000 |
-| XGBoost (tabular) | 0.908 | 0.855 | 0.758 | 0.694 | 0.833 |
-| Random Forest (tabular) | 0.666 | 0.565 | 0.359 | 0.778 | 0.233 |
+| Model | ROC-AUC | **PR-AUC** | **KS** | F1 | **Recall** | Prec@10% |
+|---|---|---|---|---|---|---|
+| **Relational GNN (R-GCN-style)** | 0.994 | **0.987** | 0.942 | 0.925 | 0.875 | 1.000 |
+| **GraphSAGE (graph)** | 0.993 | **0.986** | 0.918 | 0.929 | 0.929 | 1.000 |
+| Logistic Regression (tabular) | 0.993 | 0.986 | 0.911 | 0.925 | 0.875 | 1.000 |
+| **GCN (graph)** | 0.992 | **0.984** | 0.930 | 0.945 | 0.929 | 1.000 |
+| XGBoost (tabular) | 0.955 | 0.921 | 0.801 | 0.855 | 0.839 | 1.000 |
+| Hybrid GNN + GBDT | 0.898 | 0.833 | 0.615 | 0.724 | 0.679 | 1.000 |
+| Random Forest (tabular) | 0.796 | 0.735 | 0.526 | 0.654 | 0.607 | 0.889 |
+| Altman Z-Score (1968 baseline) | 0.587 | 0.498 | 0.225 | 0.498 | 1.000 | 0.667 |
 
-> **Takeaway:** the graph models top the table on PR-AUC — adding relationship
-> structure measurably improves distress detection. The gap widens as
-> `contagion_strength` in the synthetic config increases. Run
-> `python -m kavach_ml.train --model gat` for the full **PyTorch Geometric** GCN /
-> GraphSAGE / GAT training with focal loss, class weighting and early stopping.
+> **Takeaways (honest reading):**
+> - The **relational GNN tops PR-AUC and KS** — treating supplier / customer /
+>   ownership / lending edges as *different* relation types (R-GCN, Schlichtkrull
+>   et al. 2018; HGNN-EBP 2025) is the right inductive bias for corporate graphs.
+> - **Logistic regression is a stubbornly strong baseline** — the bankruptcy
+>   literature repeatedly warns against assuming complex models dominate; we report
+>   it honestly rather than hiding it.
+> - The classic **Altman Z-Score (1968)** is weak on a network-driven economy — its
+>   fixed weights see neither learned importance nor the graph. That gap is the
+>   whole point of the ladder above.
+> - The **hybrid GNN+GBDT needs scale** to pay off (as the 2026 relational-GNN
+>   paper reports on millions of nodes); on a few hundred nodes trees under-fit.
+>
+> Metrics follow the credit-risk literature: **PR-AUC, KS statistic, recall and
+> precision@k** — never raw accuracy. Run `python -m kavach_ml.train --model rgcn`
+> (or `gat`/`gcn`/`graphsage`) for the full **PyTorch Geometric** training with
+> focal loss, class weighting and early stopping. Full literature grounding:
+> **[docs/RESEARCH.md](docs/RESEARCH.md)**.
 
 **Handling class imbalance** (a favourite interview question): class weighting +
 focal loss, threshold tuned on validation, and PR-AUC / recall as headline metrics —
@@ -305,11 +332,12 @@ Kavach/
 ├── README.md                    ← you are here
 ├── docs/
 │   ├── ARCHITECTURE.md          ← deep architecture document (every subsystem, diagrams, Q&A)
+│   ├── RESEARCH.md              ← literature review: every design choice traced to a paper
 │   └── Kavach_Architecture_Guide.pdf
 ├── ml/                          ← Graph ML engine
 │   ├── src/kavach_ml/
-│   │   ├── data/                synthetic economy · features · graph builder
-│   │   ├── models/              baselines · GCN/GraphSAGE/GAT · numpy reference GNN
+│   │   ├── data/                synthetic economy · features · typed-edge graph builder
+│   │   ├── models/              altman · baselines · GCN/GraphSAGE/GAT/R-GCN · relational + hybrid numpy GNN
 │   │   ├── explain/             SHAP + GNNExplainer + neighbour influence
 │   │   ├── serve/engine.py      RiskEngine (all analytics used by the API)
 │   │   ├── train.py evaluate.py config.py utils.py

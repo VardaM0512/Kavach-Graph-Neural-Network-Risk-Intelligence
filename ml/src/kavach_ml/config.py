@@ -41,13 +41,13 @@ HORIZONS_MONTHS = (3, 6, 12, 24)
 @dataclass
 class SyntheticConfig:
     """Controls the synthetic-economy generator in data/synthetic.py."""
-    n_companies: int = 600
+    n_companies: int = 1200
     n_banks: int = 25
     n_industries: int = 12
     avg_suppliers: float = 1.8
     avg_customers: float = 1.8
     distress_base_rate: float = 0.14      # class imbalance we must handle
-    contagion_strength: float = 0.65      # how much a distressed neighbour raises risk
+    contagion_strength: float = 0.8       # how much a distressed neighbour raises risk
     years_of_history: int = 4
     seed: int = RANDOM_SEED
 

@@ -31,6 +31,8 @@ def score(y_true: np.ndarray, proba: np.ndarray, threshold: float | None = None)
         "f1": float(f1_score(y_true, pred, zero_division=0)),
         "precision": float(precision_score(y_true, pred, zero_division=0)),
         "recall": float(recall_score(y_true, pred, zero_division=0)),
+        "ks": ks_statistic(y_true, proba),
+        "precision_at_10pct": precision_at_k(y_true, proba, 0.10),
         "threshold": float(threshold),
     }
     tn, fp, fn, tp = confusion_matrix(y_true, pred, labels=[0, 1]).ravel()
@@ -38,9 +40,27 @@ def score(y_true: np.ndarray, proba: np.ndarray, threshold: float | None = None)
     return out
 
 
+def ks_statistic(y_true: np.ndarray, proba: np.ndarray) -> float:
+    """Kolmogorov–Smirnov statistic — max separation between the good/bad score
+    distributions. A standard credit-risk metric (higher is better)."""
+    order = np.argsort(proba)
+    y = np.asarray(y_true)[order]
+    pos = np.cumsum(y) / max(y.sum(), 1)
+    neg = np.cumsum(1 - y) / max((1 - y).sum(), 1)
+    return float(np.max(np.abs(pos - neg)))
+
+
+def precision_at_k(y_true: np.ndarray, proba: np.ndarray, k_frac: float = 0.1) -> float:
+    """Precision within the top-k% riskiest — how good the model is at ranking the
+    worst offenders to the top, the way an analyst actually triages a watchlist."""
+    n = max(1, int(len(proba) * k_frac))
+    top = np.argsort(proba)[::-1][:n]
+    return float(np.mean(np.asarray(y_true)[top]))
+
+
 def comparison_table(scores: dict) -> str:
     """Render a markdown table of {model_name: metrics} sorted by PR-AUC."""
-    cols = ["roc_auc", "pr_auc", "f1", "precision", "recall"]
+    cols = ["roc_auc", "pr_auc", "ks", "f1", "recall", "precision_at_10pct"]
     rows = sorted(scores.items(), key=lambda kv: kv[1]["pr_auc"], reverse=True)
     header = "| Model | " + " | ".join(c.upper() for c in cols) + " |\n"
     sep = "|" + "---|" * (len(cols) + 1) + "\n"

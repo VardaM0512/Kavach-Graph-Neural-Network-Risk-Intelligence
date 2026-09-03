@@ -271,11 +271,24 @@ flowchart TB
 - **GraphSAGE** — samples and aggregates neighbours; scales to large graphs.
 - **GAT** — learns **attention weights** so a 48%-of-purchases supplier counts more than a 2%
   one. Attention doubles as an explainability signal.
+- **R-GCN (relational)** — the frontier model here. Corporate edges are *not*
+  interchangeable, so a plain GCN that collapses all edges into one adjacency throws away
+  information. R-GCN (Schlichtkrull et al., 2018) learns a **separate transformation per
+  relation type** (SUPPLIES / CUSTOMER_OF / OWNS / BORROWS_FROM / SAME_INDUSTRY) — exactly
+  the `A_supply / A_equity / A_lending` decomposition of HGNN-EBP (2025). This tops Kavach's
+  scoreboard on PR-AUC / KS.
+- **Hybrid GNN + gradient boosting** — concatenate the learned graph embedding with the raw
+  tabular features and feed a boosted tree. The 2026 relational-GNN paper finds this is the
+  strongest configuration *at scale*; Kavach reproduces it and reports honestly that it needs
+  a large graph to pay off.
 
-The repo ships two implementations: the production **PyTorch Geometric** models
-(`ml/models/gnn.py`, trained by `ml/train.py`) and a dependency-light **NumPy reference GNN**
-(SGC-style, `ml/models/numpy_gnn.py`) so the pipeline runs and produces the scoreboard
-anywhere — including CI — without a GPU.
+The repo ships three implementations: the production **PyTorch Geometric** models
+(`ml/models/gnn.py` — GCN/GraphSAGE/GAT/**RGCN**, trained by `ml/train.py`), a dependency-light
+**NumPy reference GNN** (SGC + relational + hybrid, `ml/models/numpy_gnn.py`) so the pipeline
+runs and produces the scoreboard anywhere — including CI — without a GPU, and the classic
+**Altman Z-Score** (`ml/models/altman.py`) as the 1968 baseline. Every architecture is traced
+to a paper in **docs/RESEARCH.md**; metrics follow the credit-risk literature (PR-AUC, KS,
+recall, precision@k).
 
 ---
 

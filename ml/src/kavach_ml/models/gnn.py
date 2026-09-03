@@ -18,9 +18,9 @@ from __future__ import annotations
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torch_geometric.nn import GCNConv, SAGEConv, GATConv
+from torch_geometric.nn import GCNConv, SAGEConv, GATConv, RGCNConv
 
-from ..config import HORIZONS_MONTHS
+from ..config import HORIZONS_MONTHS, EDGE_TYPES
 
 
 class _Heads(nn.Module):
@@ -113,3 +113,33 @@ class GAT(nn.Module):
         self.eval()
         _, (att_edge_index, att) = self.embed(x, edge_index, return_attention=True)
         return att_edge_index, att
+
+
+class RGCN(nn.Module):
+    """Relational GCN (Schlichtkrull et al., 2018) — heterogeneous message passing.
+
+    Learns a separate transformation per relation type (SUPPLIES / CUSTOMER_OF /
+    OWNS / BORROWS_FROM / SAME_INDUSTRY), so a supplier edge and an ownership edge
+    are treated differently. This is the architecture the recent literature
+    (HGNN-EBP 2025; Relational GNN for credit default 2026) identifies as the right
+    inductive bias for corporate graphs. Requires `edge_type` alongside edge_index.
+    """
+
+    def __init__(self, in_dim, hidden=64, layers=2, dropout=0.3,
+                 num_relations=len(EDGE_TYPES), num_bases=None, **_):
+        super().__init__()
+        self.convs = nn.ModuleList()
+        self.convs.append(RGCNConv(in_dim, hidden, num_relations, num_bases=num_bases))
+        for _ in range(layers - 1):
+            self.convs.append(RGCNConv(hidden, hidden, num_relations, num_bases=num_bases))
+        self.dropout = dropout
+        self.heads = _Heads(hidden)
+
+    def embed(self, x, edge_index, edge_type=None, edge_weight=None):
+        for conv in self.convs:
+            x = F.relu(conv(x, edge_index, edge_type))
+            x = F.dropout(x, p=self.dropout, training=self.training)
+        return x
+
+    def forward(self, x, edge_index, edge_type=None, edge_weight=None):
+        return self.heads(self.embed(x, edge_index, edge_type))

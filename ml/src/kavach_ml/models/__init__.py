@@ -14,4 +14,5 @@ def load_gnn(name: str):  # pragma: no cover - requires torch
         "gcn": gnn.GCN,
         "graphsage": gnn.GraphSAGE,
         "gat": gnn.GAT,
+        "rgcn": gnn.RGCN,
     }[name]

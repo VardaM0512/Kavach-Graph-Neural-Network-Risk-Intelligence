@@ -33,6 +33,8 @@ class GraphBundle:
     feature_names: list
     node_ids: list
     graph_features: pd.DataFrame = None  # structural features for analytics (NOT model input)
+    edge_type: np.ndarray = None      # (E,) relation id per edge (for relational/heterogeneous GNN)
+    relation_names: tuple = None      # names indexed by edge_type
 
     @property
     def num_nodes(self) -> int:
@@ -69,14 +71,18 @@ def build_graph(economy: Economy, feature_frame: pd.DataFrame) -> GraphBundle:
     n = len(node_ids)
 
     # --- COO edge list (undirected for message passing) --------------------
+    from ..config import EDGE_TYPES
+    rel_to_id = {r: i for i, r in enumerate(EDGE_TYPES)}
     src = edges["src"].map(idx).values
     dst = edges["dst"].map(idx).values
     w = edges["weight"].values.astype(np.float32)
+    et = edges["type"].map(rel_to_id).values.astype(np.int64)
     edge_index = np.vstack([
         np.concatenate([src, dst]),
         np.concatenate([dst, src]),
     ]).astype(np.int64)
     edge_weight = np.concatenate([w, w]).astype(np.float32)
+    edge_type = np.concatenate([et, et]).astype(np.int64)   # relation id, undirected-duplicated
 
     # --- graph-derived features -------------------------------------------
     distress = companies["distress"].values.astype(float)
@@ -125,6 +131,8 @@ def build_graph(economy: Economy, feature_frame: pd.DataFrame) -> GraphBundle:
         feature_names=feature_names,
         node_ids=node_ids,
         graph_features=graph_feats,
+        edge_type=edge_type,
+        relation_names=EDGE_TYPES,
     )
 
 
