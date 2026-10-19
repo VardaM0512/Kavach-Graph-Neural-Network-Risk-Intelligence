@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024">
+  <!-- Kavach mark: a shield cut into a K. The K's arms are network links; the
+       joint is the red "default node" that contagion spreads from. -->
+  <defs>
+    <linearGradient id="shine" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#FFFFFF"/>
+      <stop offset="1" stop-color="#E4DFD3"/>
+    </linearGradient>
+    <radialGradient id="node" cx="0.4" cy="0.35" r="0.75">
+      <stop offset="0" stop-color="#FF8A96"/>
+      <stop offset="0.55" stop-color="#FF4F64"/>
+      <stop offset="1" stop-color="#E0263D"/>
+    </radialGradient>
+  </defs>
+  <!-- sticker offset shadow -->
+  <path transform="translate(34 34)" fill="#8C9BFF"
+        d="M512 150 L812 236 Q836 243 836 268 L836 512 C836 712 700 830 512 890 C324 830 188 712 188 512 L188 268 Q188 243 212 236 Z"/>
+  <!-- shield -->
+  <path fill="url(#shine)"
+        d="M512 150 L812 236 Q836 243 836 268 L836 512 C836 712 700 830 512 890 C324 830 188 712 188 512 L188 268 Q188 243 212 236 Z"/>
+  <!-- K: spine + two links -->
+  <g stroke="#0A0B0D" stroke-linecap="round" fill="none">
+    <line x1="392" y1="328" x2="392" y2="704" stroke-width="92"/>
+    <line x1="470" y1="516" x2="644" y2="342" stroke-width="80"/>
+    <line x1="470" y1="516" x2="652" y2="708" stroke-width="80"/>
+  </g>
+  <!-- outer nodes (hollow) -->
+  <circle cx="644" cy="342" r="52" fill="#0A0B0D"/>
+  <circle cx="644" cy="342" r="20" fill="#ECE9E2"/>
+  <circle cx="652" cy="708" r="52" fill="#0A0B0D"/>
+  <circle cx="652" cy="708" r="20" fill="#ECE9E2"/>
+  <!-- the default node -->
+  <circle cx="478" cy="516" r="86" fill="#0A0B0D"/>
+  <circle cx="478" cy="516" r="62" fill="url(#node)"/>
+</svg>

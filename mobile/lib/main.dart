@@ -1,50 +1,73 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:provider/provider.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
-import 'l10n/app_localizations.dart';
+import 'config.dart';
+import 'l10n/strings.dart';
+import 'screens/landing_screen.dart';
+import 'screens/shell.dart';
+import 'services/account.dart';
 import 'services/api_client.dart';
 import 'state/app_state.dart';
 import 'theme/app_theme.dart';
-import 'screens/login_screen.dart';
-import 'screens/home_shell.dart';
+import 'widgets/brand.dart';
 
-void main() {
-  runApp(const KavachApp());
+Future<void> main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+  if (Config.hasSupabase) {
+    await Supabase.initialize(url: Config.supabaseUrl, publishableKey: Config.supabaseAnonKey);
+  }
+  final api = ApiClient();
+  final account = Config.hasSupabase ? SupabaseBackend() : LocalBackend(api);
+  runApp(KavachApp(state: AppState(api, account)..bootstrap()));
 }
 
+/// Locales Flutter's Material widgets ship translations for.
+const _materialLocales = ['en', 'hi', 'bn', 'te', 'mr', 'ta', 'ur', 'gu', 'kn', 'or', 'ml', 'pa', 'as', 'ne'];
+
 class KavachApp extends StatelessWidget {
-  const KavachApp({super.key});
+  final AppState state;
+  const KavachApp({super.key, required this.state});
 
   @override
   Widget build(BuildContext context) {
-    return MultiProvider(
-      providers: [
-        Provider<ApiClient>(create: (_) => ApiClient()),
-        ChangeNotifierProvider<AppState>(
-          create: (ctx) => AppState(ctx.read<ApiClient>())..bootstrap(),
-        ),
-      ],
-      child: Consumer<AppState>(
-        builder: (context, state, _) => MaterialApp(
-          title: 'Kavach',
+    return ChangeNotifierProvider<AppState>.value(
+      value: state,
+      child: Consumer<AppState>(builder: (context, st, _) {
+        final lang = langOf(st.lang);
+        return MaterialApp(
+          title: 'Kavach — Credit risk intelligence',
           debugShowCheckedModeBanner: false,
           theme: AppTheme.light,
           darkTheme: AppTheme.dark,
-          themeMode: ThemeMode.system,
-          locale: state.locale,
-          supportedLocales: const [
-            Locale('en'), Locale('hi'), Locale('ta'),
-          ],
+          themeMode: st.themeMode,
+          locale: Locale(lang.materialLocale),
+          supportedLocales: [for (final l in _materialLocales) Locale(l)],
           localizationsDelegates: const [
-            AppLocalizations.delegate,
             GlobalMaterialLocalizations.delegate,
             GlobalWidgetsLocalizations.delegate,
             GlobalCupertinoLocalizations.delegate,
           ],
-          home: state.isAuthenticated ? const HomeShell() : const LoginScreen(),
-        ),
-      ),
+          // Kashmiri and Sindhi have no Material locale but are written right-to-left.
+          builder: (context, child) => Directionality(
+            textDirection: lang.rtl ? TextDirection.rtl : TextDirection.ltr,
+            child: child!,
+          ),
+          home: !st.ready
+              ? const _Splash()
+              : AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 350),
+                  child: st.isAuthenticated ? const Shell(key: ValueKey('shell')) : const LandingScreen(key: ValueKey('landing')),
+                ),
+        );
+      }),
     );
   }
+}
+
+class _Splash extends StatelessWidget {
+  const _Splash();
+  @override
+  Widget build(BuildContext context) => const Scaffold(body: Center(child: KavachMark(size: 40)));
 }

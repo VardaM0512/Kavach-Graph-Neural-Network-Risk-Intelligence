@@ -15,5 +15,14 @@ if _ML_SRC.exists() and str(_ML_SRC) not in sys.path:
     sys.path.insert(0, str(_ML_SRC))
 
 from kavach_ml.serve import get_engine  # noqa: E402
+from kavach_ml.serve import engine as _engine_mod  # noqa: E402
 
-__all__ = ["get_engine"]
+
+def model_status() -> dict:
+    """Serving-model status without forcing a (possibly slow) first training run."""
+    if _engine_mod.get_engine.cache_info().currsize == 0:
+        return {"loaded": False}
+    return {"loaded": True, **get_engine().suite.status}
+
+
+__all__ = ["get_engine", "model_status"]

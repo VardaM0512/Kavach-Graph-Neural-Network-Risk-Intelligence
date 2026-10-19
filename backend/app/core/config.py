@@ -18,20 +18,15 @@ class Settings(BaseSettings):
     jwt_algorithm: str = "HS256"
     access_token_expire_minutes: int = 60 * 24
 
-    # Databases (optional — app runs on the synthetic engine if unset)
-    postgres_url: str | None = None          # postgresql+asyncpg://user:pass@host/db
-    neo4j_uri: str | None = None             # bolt://host:7687
-    neo4j_user: str = "neo4j"
-    neo4j_password: str = "password"
-
     # Providers (optional)
     tts_provider: str = "stub"               # stub | gtts | azure | google
     stt_provider: str = "stub"               # stub | whisper | azure | google
     translation_provider: str = "builtin"    # builtin | deep_translator | azure
 
-    # Supported UI + content languages (multilingual product)
+    # English + all 22 languages of the Eighth Schedule of the Constitution of India
     supported_languages: list[str] = [
-        "en", "hi", "bn", "ta", "te", "mr", "gu", "kn", "ml", "pa", "or", "as",
+        "en", "as", "bn", "brx", "doi", "gu", "hi", "kn", "ks", "kok", "mai", "ml",
+        "mni", "mr", "ne", "or", "pa", "sa", "sat", "sd", "ta", "te", "ur",
     ]
 
     cors_origins: list[str] = ["*"]

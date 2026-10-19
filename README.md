@@ -10,8 +10,7 @@
 ![PyTorch](https://img.shields.io/badge/PyTorch-Geometric-EE4C2C?logo=pytorch&logoColor=white)
 ![FastAPI](https://img.shields.io/badge/FastAPI-0.110-009688?logo=fastapi&logoColor=white)
 ![Flutter](https://img.shields.io/badge/Flutter-3.19-02569B?logo=flutter&logoColor=white)
-![Neo4j](https://img.shields.io/badge/Neo4j-5-018bff?logo=neo4j&logoColor=white)
-![PostgreSQL](https://img.shields.io/badge/PostgreSQL-16-4169E1?logo=postgresql&logoColor=white)
+![Supabase](https://img.shields.io/badge/Supabase-Postgres%20%2B%20Auth-3ECF8E?logo=supabase&logoColor=white)
 ![Docker](https://img.shields.io/badge/Docker-ready-2496ED?logo=docker&logoColor=white)
 ![License](https://img.shields.io/badge/License-MIT-green)
 
@@ -50,7 +49,7 @@ industry peers.
 It is not "a GNN notebook". It is a full vertical slice:
 
 > a **Flutter mobile app** → a **FastAPI backend** → a **Graph Neural Network** engine →
-> a **Neo4j graph database** + **PostgreSQL**, with **explainable AI**, **scenario stress
+> **Supabase** (Postgres + auth, row-level security) for user data, with **explainable AI**, **scenario stress
 > testing**, **network-contagion simulation**, a **multilingual voice assistant**, Docker
 > packaging and CI/CD.
 
@@ -151,24 +150,27 @@ flowchart TB
         AN[Contagion · Centrality · Scenario · Portfolio]
     end
 
-    subgraph Data["🗄️ Data Layer"]
-        PG[(PostgreSQL<br/>financials · users · predictions)]
-        NEO[(Neo4j<br/>supplier/customer/ownership graph)]
+    subgraph Data["🗄️ Data"]
+        SB[(Supabase Postgres<br/>users · your companies · links · analyses)]
+        YF[(Yahoo Finance<br/>NSE/BSE statements)]
+        MC[(Model cache<br/>ml/artifacts/models)]
     end
 
+    Client -->|auth + user data, RLS| SB
     Client -->|HTTPS / REST| API
     API --> Engine
-    Engine --> PG
-    Engine --> NEO
+    Engine --> MC
+    API --> YF
     VOICE -.->|STT/TTS providers| Engine
     LANG -.->|translation providers| Engine
 ```
 
 **Layered, thin-controller design:** route handlers stay thin and delegate to the
-`RiskEngine`, which owns all modelling and graph analytics. Postgres holds the
-structured financials; Neo4j holds the relationships. The app runs **fully on a
-self-contained synthetic economy** with zero external services, so you can clone and
-run it in five minutes — then point it at real databases without touching the API.
+`RiskEngine`, which owns all modelling and graph analytics. **The API is stateless**:
+your companies, fiscal years and relationships live in Supabase (row-level security,
+see `supabase/schema.sql`) and are sent with each scoring request, so the same engine
+scores the simulated universe and your own workspace. Trained networks are cached on
+disk, so restarts load them instead of retraining and scores are reproducible.
 
 ---
 
@@ -243,8 +245,8 @@ cross-cutting product pillars — **voice** and **multilingual** support.
 | **GNN models** | GCN · GraphSAGE · GAT · **R-GCN (relational)** · **Hybrid GNN+GBDT** · Altman Z-Score baseline |
 | **Explainability** | SHAP · GNNExplainer / PGExplainer · GAT attention |
 | **Graph algorithms** | PageRank · degree centrality · HHI concentration · Louvain community |
-| **Databases** | PostgreSQL (financials) · Neo4j (relationships) |
-| **Infra** | Docker · docker-compose · GitHub Actions CI · Render / Neo4j Aura |
+| **Data** | Supabase (Postgres + auth + RLS) · Yahoo Finance (NSE/BSE statements) |
+| **Infra** | Docker · docker-compose · GitHub Actions CI · Render |
 
 ---
 
@@ -257,14 +259,12 @@ sequenceDiagram
     participant App as 📱 Flutter App
     participant API as ⚡ FastAPI
     participant Eng as 🧠 RiskEngine
-    participant Neo as 🗄️ Neo4j
-    participant PG as 🗄️ Postgres
+    participant SB as 🗄️ Supabase
 
     App->>API: GET /api/predictions/C0042  (Bearer JWT)
     API->>Eng: predict("C0042")
-    Eng->>PG: load financial features (or synthetic)
-    Eng->>Neo: load 1–2 hop relationships (or synthetic)
-    Eng->>Eng: message passing → GNN embedding → distress prob
+    App->>SB: load your companies + links (RLS)
+    Eng->>Eng: ratios → typed message passing (linear GNN + PyG GCN + GAT) → blended PD + range
     Eng->>Eng: multi-horizon + health + contagion
     Eng-->>API: {prob, band, horizons, health, contagion}
     API-->>App: JSON
@@ -278,50 +278,55 @@ sequenceDiagram
 
 ## 📊 The ML experiment & results
 
-The whole point is a **fair, honest experiment**: train tabular baselines and graph
-models on the *same* stratified split and compare on **PR-AUC and recall** (not
-accuracy — distress is the rare class).
+**Protocol:** 5-fold stratified cross-validation on the simulated universe
+(1,500 companies, ~10% default rate). Inside every fold, 18% of the training part is
+held out for early stopping and calibration. Graph models that use counterparties'
+*known default status* only see labels from the training part of the fold; test
+companies' labels are hidden. Reproduce with `python ml/scripts/benchmark.py`
+(writes `ml/artifacts/benchmark.json` / `.md`). Mean ± std over folds:
 
-The synthetic economy deliberately includes **network-induced distress**: companies
-with *healthy fundamentals* that fail purely because their counterparties fail. These
-are cases a tabular model structurally *cannot* get right.
+| Model | ROC-AUC | PR-AUC | Brier |
 
-Representative run (`python ml/scripts/quick_demo.py`, 1,200 companies, ~31%
-distress, strong contagion; NumPy reference GNN so it runs anywhere):
+|---|---|---|---|
 
-| Model | ROC-AUC | **PR-AUC** | **KS** | F1 | **Recall** | Prec@10% |
-|---|---|---|---|---|---|---|
-| **Relational GNN (R-GCN-style)** | 0.994 | **0.987** | 0.942 | 0.925 | 0.875 | 1.000 |
-| **GraphSAGE (graph)** | 0.993 | **0.986** | 0.918 | 0.929 | 0.929 | 1.000 |
-| Logistic Regression (tabular) | 0.993 | 0.986 | 0.911 | 0.925 | 0.875 | 1.000 |
-| **GCN (graph)** | 0.992 | **0.984** | 0.930 | 0.945 | 0.929 | 1.000 |
-| XGBoost (tabular) | 0.955 | 0.921 | 0.801 | 0.855 | 0.839 | 1.000 |
-| Hybrid GNN + GBDT | 0.898 | 0.833 | 0.615 | 0.724 | 0.679 | 1.000 |
-| Random Forest (tabular) | 0.796 | 0.735 | 0.526 | 0.654 | 0.607 | 0.889 |
-| Altman Z-Score (1968 baseline) | 0.587 | 0.498 | 0.225 | 0.498 | 1.000 | 0.667 |
+| Blend: linear relational GNN + GCN + GAT | 0.784 ± 0.032 | 0.442 ± 0.093 | 0.0745 |
 
-> **Takeaways (honest reading):**
-> - The **relational GNN tops PR-AUC and KS** — treating supplier / customer /
->   ownership / lending edges as *different* relation types (R-GCN, Schlichtkrull
->   et al. 2018; HGNN-EBP 2025) is the right inductive bias for corporate graphs.
-> - **Logistic regression is a stubbornly strong baseline** — the bankruptcy
->   literature repeatedly warns against assuming complex models dominate; we report
->   it honestly rather than hiding it.
-> - The classic **Altman Z-Score (1968)** is weak on a network-driven economy — its
->   fixed weights see neither learned importance nor the graph. That gap is the
->   whole point of the ladder above.
-> - The **hybrid GNN+GBDT needs scale** to pay off (as the 2026 relational-GNN
->   paper reports on millions of nodes); on a few hundred nodes trees under-fit.
->
-> Metrics follow the credit-risk literature: **PR-AUC, KS statistic, recall and
-> precision@k** — never raw accuracy. Run `python -m kavach_ml.train --model rgcn`
-> (or `gat`/`gcn`/`graphsage`) for the full **PyTorch Geometric** training with
-> focal loss, class weighting and early stopping. Full literature grounding:
-> **[docs/RESEARCH.md](docs/RESEARCH.md)**.
+| PyG GCN + counterparty defaults | 0.782 ± 0.031 | 0.441 ± 0.078 | 0.0757 |
 
-**Handling class imbalance** (a favourite interview question): class weighting +
-focal loss, threshold tuned on validation, and PR-AUC / recall as headline metrics —
-never raw accuracy.
+| Linear relational GNN + counterparty defaults | 0.780 ± 0.042 | 0.428 ± 0.117 | 0.0761 |
+
+| PyG GAT + counterparty defaults | 0.765 ± 0.035 | 0.443 ± 0.074 | 0.0756 |
+
+| Linear relational GNN, ratios only | 0.762 ± 0.033 | 0.409 ± 0.105 | 0.0779 |
+
+| Logistic regression, own ratios | 0.749 ± 0.023 | 0.416 ± 0.067 | 0.0765 |
+
+| PyG R-GCN + counterparty defaults | 0.738 ± 0.034 | 0.414 ± 0.097 | 0.0807 |
+
+| Altman Z-score (1968) | 0.730 ± 0.031 | 0.359 ± 0.069 | 0.2225 |
+
+**Honest reading**
+
+- **The production model is the blend** of the linear relational GNN, a PyTorch
+  Geometric GCN and a PyG GAT (log-odds average). It has the best calibration (Brier)
+  and ties for the best ranking. The gaps between the top four rows are **within
+  fold-to-fold noise** (± 0.03 AUC); none of them is clearly better than the others.
+- **The graph signal is real but moderate**: the best graph models beat ratios-only
+  logistic regression by about 0.035 AUC. Most of the lift comes from counterparties'
+  *known default status* (an input lenders genuinely have: IBC admissions and D
+  ratings are public), which every graph model here uses.
+- **The PyG R-GCN underperforms** at this scale: per-relation weight matrices
+  overfit 1,500 nodes. It stays in the benchmark rather than being hidden.
+- **Altman Z (1968)** ranks reasonably but is badly calibrated (Brier 0.22), so it is
+  unusable as a probability.
+- An earlier version of this README reported ~0.99 ROC-AUC. That came from an older
+  synthetic generator whose labels were far too easy and from a single lucky split;
+  it has been replaced by the cross-validated numbers above.
+
+**Uncertainty.** Every score carries a model range: the 10th–90th percentile across
+all individual networks (5 seeds × 2 PyG architectures + the linear model).
+**Multi-horizon risk** (3/6/24 months) is *derived* from the 12-month PD with a
+hazard curve; only the 12-month PD is predicted. The UI says so.
 
 ---
 
@@ -347,17 +352,14 @@ Kavach/
 │   ├── app/
 │   │   ├── routers/             auth companies predictions network scenario
 │   │   │                        portfolio alerts explain language voice ml health
-│   │   ├── services/            audio_service · translation_service
-│   │   ├── db/                  postgres · neo4j (optional)
+│   │   ├── services/            ingest (ticker · CSV/Excel · PDF) · assistant · audio · translation
 │   │   ├── core/                config · security(JWT) · ml bridge
 │   │   └── main.py
 │   ├── Dockerfile · tests/
 ├── mobile/                      ← Flutter app
 │   ├── lib/ (screens · widgets · services · state · l10n · theme)
 │   └── pubspec.yaml
-├── infra/
-│   ├── postgres/init.sql
-│   └── neo4j/init.cypher
+├── supabase/schema.sql         ← tables + row-level security (run once in Supabase)
 ├── .github/workflows/ci.yml     ← ML + backend + docker + flutter jobs
 ├── docker-compose.yml · render.yaml · scripts/deploy.sh
 ```
@@ -377,23 +379,60 @@ python scripts/quick_demo.py          # prints the model scoreboard
 ```bash
 cd backend
 pip install -r requirements.txt
-uvicorn app.main:app --reload --port 8000
-# open http://localhost:8000/docs   (interactive Swagger UI)
+uvicorn app.main:app --reload --port 8010
+# open http://localhost:8010/docs   (interactive Swagger UI)
 # demo login → email: demo@kavach.ai   password: demo1234
 ```
 
-### 3. Run the full stack (Postgres + Neo4j + API) with Docker
+### 3. Run the API with Docker
 ```bash
 docker compose up --build
 ```
 
-### 4. Run the mobile app
+### 4. Run the app (web or mobile)
 ```bash
 cd mobile
 flutter pub get
-flutter gen-l10n
-flutter run --dart-define=KAVACH_API_BASE=http://10.0.2.2:8000   # Android emulator
+flutter run -d chrome --dart-define=KAVACH_API_BASE=http://localhost:8010
+# Android emulator: --dart-define=KAVACH_API_BASE=http://10.0.2.2:8000
 ```
+
+### Use your own companies (real data)
+**My companies** is the first screen after sign-in. Four ways in, all ending in a review step:
+
+| Input | How | API |
+|---|---|---|
+| Spreadsheet | CSV / Excel, one row per company per fiscal year (₹ crore); optional `relationships` sheet (company, counterparty, relation, share, health); optional `defaulted` column | `POST /api/analyze/batch`, `POST /api/ingest/table` |
+| Ticker | NSE / BSE symbol → 4–5 years of statements from Yahoo Finance, converted to INR at each balance-sheet date | `GET /api/ingest/ticker/{symbol}` |
+| Annual report | PDF → Ind AS line items extracted with the matched line shown for every number | `POST /api/ingest/pdf` |
+| Manual | 13 statement fields | `POST /api/analyze` |
+
+Companies you upload are scored **together as one network**: a counterparty that is
+also in your list links to its real financials (and its default status, if you mark
+it), every fiscal year is scored for a trend line, and a contagion pass shows which of
+your companies would drag the others down. Mark known outcomes and press **Retrain**
+to mix them into training (the interpretable member retrains per request; with 8+
+labels a leave-one-out check is reported). Any company report exports to PDF.
+Template: `GET /api/ingest/template.csv`.
+
+### 5. Accounts with Supabase (optional)
+1. Create a Supabase project, open **SQL Editor**, paste [`supabase/schema.sql`](supabase/schema.sql) and run it.
+   It creates `profiles`, `watchlist`, `portfolios`, `portfolio_holdings`, `analyses` and
+   `assistant_queries`, all with owner-only row-level security.
+2. Copy the project URL and anon/publishable key from **Project Settings → API**, then run:
+```bash
+flutter run -d chrome \
+  --dart-define=KAVACH_API_BASE=http://localhost:8010 \
+  --dart-define=SUPABASE_URL=https://<project>.supabase.co \
+  --dart-define=SUPABASE_ANON_KEY=<anon-key>
+```
+Without these two values the app falls back to the backend's demo login
+(`demo@kavach.ai` / `demo1234`) and keeps watchlists and portfolios in browser storage.
+
+**Languages:** the UI ships in English plus all 22 languages of the Eighth Schedule
+(Urdu, Kashmiri and Sindhi render right-to-left). Translations for the lower-resource
+languages (Bodo, Dogri, Santali, Manipuri, Kashmiri, Sindhi, Sanskrit, Konkani, Maithili)
+should be reviewed by native speakers before production use.
 
 ---
 
@@ -420,9 +459,8 @@ Full interactive docs are auto-generated at **`/docs`** (Swagger) and **`/redoc`
 
 ## 🚢 Deployment
 
-**Backend (Render, one click):** `render.yaml` provisions the Docker web service +
-managed Postgres and wires a health check at `/api/health`. Point
-`KAVACH_NEO4J_URI` at a free **Neo4j Aura** instance.
+**Backend (Render, one click):** `render.yaml` provisions the Docker web service with a
+health check at `/api/health`. User data lives in Supabase, so no database is attached.
 
 **Anywhere with Docker:**
 ```bash
@@ -446,8 +484,8 @@ Full step-by-step deployment (including managed DB setup and env vars) is in
 ## 🗺️ Roadmap
 
 - **Temporal GNN** — model how relationships evolve year over year (TGN / EvolveGCN)
-- **Uncertainty estimation** — confidence intervals on each prediction
-- **Real data connectors** — filings / credit-bureau ETL into Postgres + Neo4j
+- **Training on real defaults** — IBBI insolvency admissions / rating-agency D ratings, shown next to synthetic-trained metrics
+- **A real graph from filings** — related-party transactions and disclosed subsidiaries
 - **Model monitoring & drift detection** + automated retraining
 - **Push notifications** for early-warning alerts
 - **WebSocket** live risk streaming to the app

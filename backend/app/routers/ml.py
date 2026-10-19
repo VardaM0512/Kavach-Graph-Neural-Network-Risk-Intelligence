@@ -1,6 +1,7 @@
 from fastapi import APIRouter
 
 from ..core.ml import get_engine
+from kavach_ml.data.features import FEATURE_NAMES  # noqa: E402  (path set by core.ml)
 
 router = APIRouter(prefix="/ml", tags=["ml"])
 
@@ -23,6 +24,6 @@ def dataset_summary():
     eng = get_engine()
     return {
         **eng.economy.summary(),
-        "num_features": eng.bundle.num_features,
-        "feature_names": eng.bundle.feature_names,
+        "num_features": len(FEATURE_NAMES),
+        "feature_names": list(FEATURE_NAMES),
     }

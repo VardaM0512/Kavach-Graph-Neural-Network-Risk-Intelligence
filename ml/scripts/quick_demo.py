@@ -78,6 +78,18 @@ def main():
     thr = score(bundle.y[va], hp[va])["threshold"]
     scores["hybrid_gnn+gbdt"] = score(bundle.y[te], hp[te], threshold=thr)
 
+    print("8. Kavach inductive relational GNN (typed, directional, sign-constrained) ...")
+    import numpy as np
+    from kavach_ml.models.inductive import InductiveGraphModel, directed_relations
+    from kavach_ml.serve.engine import _GOOD_SIGN
+    idx = {c: i for i, c in enumerate(bundle.node_ids)}
+    signs = np.array([-_GOOD_SIGN[k] for k in bundle.feature_names], dtype=float)
+    ind = InductiveGraphModel(risk_signs=signs).fit(
+        bundle.X, directed_relations(eco.edges, idx), bundle.y, tr)
+    ip = ind.predict_proba_all()
+    thr = score(bundle.y[va], ip[va])["threshold"]
+    scores["kavach_inductive_rgnn"] = score(bundle.y[te], ip[te], threshold=thr)
+
     print("\n===== MODEL COMPARISON (test set, sorted by PR-AUC) =====\n")
     table = comparison_table(scores)
     print(table)
@@ -85,8 +97,9 @@ def main():
     save_json(scores, ARTIFACTS / "comparison.json")
     (ARTIFACTS / "comparison.md").write_text(table)
     print(f"Saved metrics -> {ARTIFACTS/'comparison.json'}")
-    print("\nInterpretation: the graph models should top the table on PR-AUC / recall,")
-    print("because distress labels depend on neighbours' health, which tabular models cannot see.")
+    print("\nInterpretation: distress here propagates along *directed, weighted* dependencies")
+    print("(a defaulting customer that is 40% of revenue). Models that respect edge type,")
+    print("direction and weight recover that signal; homogeneous unweighted GNNs dilute it.")
 
 
 if __name__ == "__main__":

@@ -15,10 +15,13 @@ from __future__ import annotations
 from ..core.config import get_settings
 
 LANGUAGE_NAMES = {
-    "en": "English", "hi": "हिन्दी", "bn": "বাংলা", "ta": "தமிழ்", "te": "తెలుగు",
-    "mr": "मराठी", "gu": "ગુજરાતી", "kn": "ಕನ್ನಡ", "ml": "മലയാളം", "pa": "ਪੰਜਾਬੀ",
-    "or": "ଓଡ଼ିଆ", "as": "অসমীয়া",
+    "en": "English", "as": "অসমীয়া", "bn": "বাংলা", "brx": "बड़ो", "doi": "डोगरी",
+    "gu": "ગુજરાતી", "hi": "हिन्दी", "kn": "ಕನ್ನಡ", "ks": "کٲشُر", "kok": "कोंकणी",
+    "mai": "मैथिली", "ml": "മലയാളം", "mni": "ꯃꯤꯇꯩꯂꯣꯟ", "mr": "मराठी", "ne": "नेपाली",
+    "or": "ଓଡ଼ିଆ", "pa": "ਪੰਜਾਬੀ", "sa": "संस्कृतम्", "sat": "ᱥᱟᱱᱛᱟᱲᱤ", "sd": "سنڌي",
+    "ta": "தமிழ்", "te": "తెలుగు", "ur": "اردو",
 }
+RTL_LANGUAGES = {"ur", "ks", "sd"}
 
 # tiny offline glossary so risk bands / drivers are localised even offline
 _GLOSSARY = {
@@ -37,7 +40,7 @@ _GLOSSARY = {
 
 def supported_languages() -> list[dict]:
     langs = get_settings().supported_languages
-    return [{"code": c, "name": LANGUAGE_NAMES.get(c, c)} for c in langs]
+    return [{"code": c, "name": LANGUAGE_NAMES.get(c, c), "rtl": c in RTL_LANGUAGES} for c in langs]
 
 
 def translate(text: str, target_lang: str, source_lang: str = "auto") -> dict:

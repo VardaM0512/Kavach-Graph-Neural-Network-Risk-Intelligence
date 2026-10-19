@@ -27,11 +27,20 @@ EDGE_TYPES = ("SUPPLIES", "CUSTOMER_OF", "OWNS", "BORROWS_FROM", "SAME_INDUSTRY"
 # ---------------------------------------------------------------------------
 # Risk banding — how a probability becomes a human-readable band
 # ---------------------------------------------------------------------------
+# Bands sit on the *calibrated* 12-month probability of default (PD), the way a
+# credit desk reads it: a 10% PD is already a sub-investment-grade name.
 RISK_BANDS = [
-    (0.00, 0.30, "LOW"),
-    (0.30, 0.60, "MODERATE"),
-    (0.60, 0.80, "HIGH"),
-    (0.80, 1.01, "CRITICAL"),
+    (0.00, 0.03, "LOW"),
+    (0.03, 0.10, "MODERATE"),
+    (0.10, 0.30, "HIGH"),
+    (0.30, 1.01, "CRITICAL"),
+]
+
+# PD -> implied rating (upper PD bound per grade, roughly CRISIL/S&P 1-yr default
+# experience). Used purely as a familiar reading aid, not an actual rating.
+IMPLIED_RATINGS = [
+    (0.0005, "AAA"), (0.0012, "AA"), (0.004, "A"), (0.015, "BBB"),
+    (0.05, "BB"), (0.15, "B"), (0.35, "CCC"), (0.60, "CC"), (1.01, "C"),
 ]
 
 # Prediction horizons (months) for the multi-horizon head
@@ -41,13 +50,13 @@ HORIZONS_MONTHS = (3, 6, 12, 24)
 @dataclass
 class SyntheticConfig:
     """Controls the synthetic-economy generator in data/synthetic.py."""
-    n_companies: int = 1200
+    n_companies: int = 1500
     n_banks: int = 25
     n_industries: int = 12
     avg_suppliers: float = 1.8
     avg_customers: float = 1.8
-    distress_base_rate: float = 0.14      # class imbalance we must handle
-    contagion_strength: float = 0.8       # how much a distressed neighbour raises risk
+    distress_base_rate: float = 0.08      # ~Indian corporate default rate across a cycle
+    contagion_strength: float = 0.9       # how strongly counterparty distress propagates
     years_of_history: int = 4
     seed: int = RANDOM_SEED
 
@@ -74,6 +83,13 @@ class TrainConfig:
     models: tuple = field(default_factory=lambda: (
         "logreg", "random_forest", "xgboost", "gcn", "graphsage", "gat",
     ))
+
+
+def implied_rating(prob: float) -> str:
+    for hi, grade in IMPLIED_RATINGS:
+        if prob < hi:
+            return grade
+    return "C"
 
 
 def band_for(prob: float) -> str:

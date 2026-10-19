@@ -49,7 +49,3 @@ async def _startup():
     if os.getenv("KAVACH_WARM_ENGINE") == "1":
         from .core.ml import get_engine
         get_engine()
-    # optional DB engines
-    from .db import postgres
-    if postgres.is_configured():
-        await postgres.init_engine()

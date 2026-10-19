@@ -1,5 +1,5 @@
 # One-click backend deploy on Render (https://render.com).
-# Managed Postgres here; point KAVACH_NEO4J_URI at Neo4j Aura (free tier).
+# The API is stateless; accounts and user data live in Supabase.
 services:
   - type: web
     name: kavach-api
@@ -14,13 +14,3 @@ services:
         generateValue: true
       - key: KAVACH_WARM_ENGINE
         value: "1"
-      - key: KAVACH_POSTGRES_URL
-        fromDatabase:
-          name: kavach-db
-          property: connectionString
-      # - key: KAVACH_NEO4J_URI        # set from Neo4j Aura
-      # - key: KAVACH_NEO4J_PASSWORD
-
-databases:
-  - name: kavach-db
-    plan: free

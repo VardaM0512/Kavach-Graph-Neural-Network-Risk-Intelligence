@@ -6,6 +6,6 @@ router = APIRouter(prefix="/alerts", tags=["alerts"])
 
 
 @router.get("/early-warning")
-def early_warning(threshold: float = Query(0.6, ge=0.0, le=1.0)):
-    """Early-warning feed: companies whose risk crossed into HIGH/CRITICAL."""
+def early_warning(threshold: float = Query(0.10, ge=0.0, le=1.0)):
+    """Band downgrades since last fiscal year first, then names above the PD threshold."""
     return get_engine().early_warnings(threshold=threshold)

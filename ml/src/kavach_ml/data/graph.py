@@ -35,6 +35,8 @@ class GraphBundle:
     graph_features: pd.DataFrame = None  # structural features for analytics (NOT model input)
     edge_type: np.ndarray = None      # (E,) relation id per edge (for relational/heterogeneous GNN)
     relation_names: tuple = None      # names indexed by edge_type
+    mu: np.ndarray = None             # standardisation stats (for scoring new companies)
+    sigma: np.ndarray = None
 
     @property
     def num_nodes(self) -> int:
@@ -117,8 +119,9 @@ def build_graph(economy: Economy, feature_frame: pd.DataFrame) -> GraphBundle:
     # `graph_features` (concentration, centrality, neighbour distress) is kept
     # separate and used only by the analytics engine / explainability, never fed
     # to the classifiers, to keep the comparison fair and leakage-free.
-    feature_names = [c for c in feature_frame.columns if c != "company_id"]
-    X = feature_frame[feature_names].values.astype(np.float32)
+    from .features import FEATURE_NAMES, transform_features
+    feature_names = list(FEATURE_NAMES)
+    X = transform_features(feature_frame)                 # clip + log-compress
 
     mu, sigma = X.mean(0), X.std(0) + 1e-6                # z-score standardisation
     X = (X - mu) / sigma
@@ -133,6 +136,8 @@ def build_graph(economy: Economy, feature_frame: pd.DataFrame) -> GraphBundle:
         graph_features=graph_feats,
         edge_type=edge_type,
         relation_names=EDGE_TYPES,
+        mu=mu,
+        sigma=sigma,
     )
 
 

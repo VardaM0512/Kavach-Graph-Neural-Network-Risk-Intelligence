@@ -6,38 +6,33 @@ router = APIRouter(prefix="/companies", tags=["companies"])
 
 
 @router.get("")
-def list_companies(limit: int = Query(50, le=200), offset: int = 0,
-                   band: str | None = None):
-    eng = get_engine()
-    cards = eng.list_companies(limit=limit, offset=offset)
-    if band:
-        cards = [c for c in cards if c["risk_band"] == band.upper()]
-    return {"count": len(cards), "companies": cards}
+def list_companies(limit: int = Query(50, le=500), offset: int = 0,
+                   band: str | None = None, sector: str | None = None,
+                   q: str | None = None, sort: str = Query("risk", pattern="^(risk|safe|movers|size|name)$")):
+    """Screener: filter by band / sector / text, sort by risk, movers, size or name."""
+    total, cards = get_engine().list_companies(limit=limit, offset=offset, sector=sector,
+                                               band=band, q=q, sort=sort)
+    return {"total": total, "count": len(cards), "companies": cards}
 
 
 @router.get("/search")
-def search(q: str = Query(..., min_length=1), limit: int = 20):
-    eng = get_engine()
-    ql = q.lower()
-    hits = [eng.company_card(cid) for cid in eng.bundle.node_ids
-            if ql in cid.lower() or ql in eng._companies.loc[cid, "name"].lower()][:limit]
-    return {"query": q, "results": hits}
+def search(q: str = Query(..., min_length=1), limit: int = 8):
+    """Fuzzy name search (typo-tolerant) for the command bar."""
+    return {"query": q, "results": get_engine().search(q, limit=limit)}
 
 
 @router.get("/{company_id}")
 def company_detail(company_id: str):
-    eng = get_engine()
+    """Everything the company page needs in one call."""
     try:
-        return {
-            **eng.company_card(company_id),
-            "health": eng.health_score(company_id),
-            "liquidity": eng.liquidity_risk(company_id),
-            "leverage": eng.leverage_risk(company_id),
-            "concentration": eng.concentration(company_id),
-            "centrality": eng.centrality(company_id),
-            "peer_comparison": eng.peer_comparison(company_id),
-            "risk_timeline": eng.risk_timeline(company_id),
-            "anomalies": eng.anomalies(company_id),
-        }
+        return get_engine().company_detail(company_id)
+    except KeyError:
+        raise HTTPException(404, f"unknown company_id {company_id}")
+
+
+@router.get("/{company_id}/statements")
+def statements(company_id: str):
+    try:
+        return get_engine().statements(company_id)
     except KeyError:
         raise HTTPException(404, f"unknown company_id {company_id}")

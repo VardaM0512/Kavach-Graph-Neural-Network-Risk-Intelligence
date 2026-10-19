@@ -13,7 +13,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 # ---- dependencies ----
 COPY backend/requirements.txt /app/backend/requirements.txt
-RUN pip install -r /app/backend/requirements.txt
+RUN pip install --extra-index-url https://download.pytorch.org/whl/cpu -r /app/backend/requirements.txt
 
 # ---- application code (backend + ml package it imports) ----
 COPY backend /app/backend

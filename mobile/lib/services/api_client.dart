@@ -1,25 +1,21 @@
 import 'package:dio/dio.dart';
 
-/// Thin wrapper over Dio for the Kavach REST API.
-///
-/// Base URL resolves in this order:
-///   --dart-define=KAVACH_API_BASE=https://api.example.com   (build-time)
-///   http://10.0.2.2:8000  (Android emulator -> host localhost)
+import '../config.dart';
+
+typedef Json = Map<String, dynamic>;
+
+/// Thin typed wrapper over the Kavach REST API.
 class ApiClient {
   final Dio _dio;
-  String? _token;
 
   ApiClient({String? baseUrl})
       : _dio = Dio(BaseOptions(
-          baseUrl: baseUrl ??
-              const String.fromEnvironment('KAVACH_API_BASE',
-                  defaultValue: 'http://10.0.2.2:8000'),
+          baseUrl: baseUrl ?? Config.apiBase,
           connectTimeout: const Duration(seconds: 20),
-          receiveTimeout: const Duration(seconds: 30),
+          receiveTimeout: const Duration(seconds: 60),
         ));
 
   void setToken(String? token) {
-    _token = token;
     if (token != null) {
       _dio.options.headers['Authorization'] = 'Bearer $token';
     } else {
@@ -27,79 +23,69 @@ class ApiClient {
     }
   }
 
-  bool get hasToken => _token != null;
+  Future<Json> _get(String path, [Map<String, dynamic>? q]) async =>
+      Json.from((await _dio.get(path, queryParameters: q)).data);
+  Future<Json> _post(String path, Object? body) async =>
+      Json.from((await _dio.post(path, data: body)).data);
 
-  // ---- auth ----
-  Future<Map<String, dynamic>> login(String email, String password) async {
-    final r = await _dio.post('/api/auth/login',
-        data: {'email': email, 'password': password});
-    return Map<String, dynamic>.from(r.data);
+  // auth (demo backend; Supabase is used instead when configured)
+  Future<Json> login(String email, String password) =>
+      _post('/api/auth/login', {'email': email, 'password': password});
+  Future<Json> register(String email, String password, String name) =>
+      _post('/api/auth/register', {'email': email, 'password': password, 'name': name});
+
+  // universe
+  Future<Json> overview() => _get('/api/overview');
+  Future<Json> sectors() => _get('/api/sectors');
+  Future<Json> modelCard() => _get('/api/model');
+  Future<Json> companies({int limit = 50, int offset = 0, String? band, String? sector, String? q, String sort = 'risk'}) =>
+      _get('/api/companies', {
+        'limit': limit, 'offset': offset, 'sort': sort,
+        if (band != null) 'band': band, if (sector != null) 'sector': sector,
+        if (q != null && q.isNotEmpty) 'q': q,
+      });
+  Future<List<Json>> search(String q, {int limit = 8}) async =>
+      ((await _get('/api/companies/search', {'q': q, 'limit': limit}))['results'] as List).cast<Json>();
+  Future<Json> company(String id) => _get('/api/companies/$id');
+
+  // network
+  Future<Json> egoGraph(String id, {int hops = 1}) => _get('/api/network/$id/graph', {'hops': hops});
+  Future<Json> simulateFailure(String id, {int depth = 4}) async =>
+      Json.from((await _dio.post('/api/network/$id/simulate-failure', queryParameters: {'max_depth': depth})).data);
+
+  // scenario
+  Future<Json> scenario(String id, {double revenueChange = 0, double rateChange = 0, double marginChange = 0,
+          double debtChange = 0, bool supplierFailure = false, bool customerLoss = false}) =>
+      _post('/api/scenario', {
+        'company_id': id, 'revenue_change': revenueChange, 'interest_rate_change': rateChange,
+        'margin_change': marginChange, 'debt_change': debtChange,
+        'supplier_failure': supplierFailure, 'customer_loss': customerLoss,
+      });
+  Future<Json> sweep(String id) => _get('/api/scenario/$id/sweep');
+
+  // portfolio / alerts
+  Future<Json> portfolioRisk(List<Json> holdings) => _post('/api/portfolio/risk', {'holdings': holdings});
+  Future<Json> earlyWarnings({double threshold = 0.10}) => _get('/api/alerts/early-warning', {'threshold': threshold});
+
+  // analyze a real company
+  Future<Json> analyzeTemplate() => _get('/api/analyze/template');
+  Future<Json> analyze(Json payload) => _post('/api/analyze', payload);
+
+  // assistant
+  Future<Json> ask(String text, String lang) => _post('/api/assistant', {'text': text, 'lang': lang});
+
+  // ---- real companies
+  Future<Json> ticker(String symbol) => _get('/api/ingest/ticker/${Uri.encodeComponent(symbol)}');
+  String get templateUrl => '${_dio.options.baseUrl}/api/ingest/template.csv';
+
+  Future<Json> _upload(String path, List<int> bytes, String filename, [Map<String, dynamic> fields = const {}]) async {
+    final form = FormData.fromMap({...fields, 'file': MultipartFile.fromBytes(bytes, filename: filename)});
+    return Json.from((await _dio.post(path, data: form)).data);
   }
 
-  // ---- companies ----
-  Future<List<dynamic>> companies({int limit = 50, String? band}) async {
-    final r = await _dio.get('/api/companies',
-        queryParameters: {'limit': limit, if (band != null) 'band': band});
-    return r.data['companies'] as List<dynamic>;
-  }
-
-  Future<Map<String, dynamic>> company(String id) async =>
-      Map<String, dynamic>.from((await _dio.get('/api/companies/$id')).data);
-
-  // ---- predictions ----
-  Future<Map<String, dynamic>> predict(String id) async =>
-      Map<String, dynamic>.from((await _dio.get('/api/predictions/$id')).data);
-
-  // ---- network ----
-  Future<Map<String, dynamic>> egoGraph(String id, {int hops = 1}) async =>
-      Map<String, dynamic>.from(
-          (await _dio.get('/api/network/$id/graph', queryParameters: {'hops': hops}))
-              .data);
-
-  Future<Map<String, dynamic>> contagion(String id) async =>
-      Map<String, dynamic>.from((await _dio.get('/api/network/$id/contagion')).data);
-
-  Future<Map<String, dynamic>> simulateFailure(String id) async =>
-      Map<String, dynamic>.from(
-          (await _dio.post('/api/network/$id/simulate-failure')).data);
-
-  Future<Map<String, dynamic>> heatmap() async =>
-      Map<String, dynamic>.from((await _dio.get('/api/network/heatmap')).data);
-
-  // ---- explain / scenario / portfolio / alerts ----
-  Future<Map<String, dynamic>> explain(String id, {String lang = 'en'}) async =>
-      Map<String, dynamic>.from(
-          (await _dio.get('/api/explain/$id', queryParameters: {'lang': lang})).data);
-
-  Future<Map<String, dynamic>> scenario(String id,
-      {double revenueChange = 0,
-      double rateChange = 0,
-      bool supplierFailure = false}) async {
-    final r = await _dio.post('/api/scenario', data: {
-      'company_id': id,
-      'revenue_change': revenueChange,
-      'interest_rate_change': rateChange,
-      'supplier_failure': supplierFailure,
-    });
-    return Map<String, dynamic>.from(r.data);
-  }
-
-  Future<Map<String, dynamic>> portfolioRisk(List<Map<String, dynamic>> holdings) async {
-    final r = await _dio.post('/api/portfolio/risk', data: {'holdings': holdings});
-    return Map<String, dynamic>.from(r.data);
-  }
-
-  Future<Map<String, dynamic>> earlyWarnings({double threshold = 0.6}) async =>
-      Map<String, dynamic>.from((await _dio
-              .get('/api/alerts/early-warning', queryParameters: {'threshold': threshold}))
-          .data);
-
-  // ---- language / voice ----
-  Future<List<dynamic>> languages() async =>
-      (await _dio.get('/api/language/supported')).data['languages'] as List<dynamic>;
-
-  Future<Map<String, dynamic>> tts(String text, String lang) async {
-    final r = await _dio.post('/api/voice/tts', data: {'text': text, 'lang': lang});
-    return Map<String, dynamic>.from(r.data);
-  }
+  Future<Json> parseTable(List<int> bytes, String filename, {String unit = 'crore'}) =>
+      _upload('/api/ingest/table', bytes, filename, {'unit': unit});
+  Future<Json> extractPdf(List<int> bytes, String filename) => _upload('/api/ingest/pdf', bytes, filename);
+  Future<Json> scoreWorkspace(Json workspace) => _post('/api/workspace/score', workspace);
+  Future<Json> retrain(Json workspace) => _post('/api/workspace/retrain', workspace);
 }
