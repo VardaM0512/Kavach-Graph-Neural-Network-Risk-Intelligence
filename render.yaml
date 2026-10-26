@@ -4,6 +4,7 @@ services:
   - type: web
     name: kavach-api
     runtime: docker
+    plan: free
     dockerfilePath: ./backend/Dockerfile
     dockerContext: .
     healthCheckPath: /api/health
@@ -13,4 +14,4 @@ services:
       - key: KAVACH_JWT_SECRET
         generateValue: true
       - key: KAVACH_WARM_ENGINE
-        value: "1"
+        value: "0"   # lazy-load the model; keeps the free 512 MB instance healthy
