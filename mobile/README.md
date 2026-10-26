@@ -19,7 +19,6 @@ production client.
 ## Run locally
 ```bash
 flutter pub get
-flutter gen-l10n            # builds lib/l10n/app_localizations.dart from the .arb files
 # point the browser client at your local backend:
 flutter run -d chrome --dart-define=KAVACH_API_BASE=http://localhost:8010
 ```
@@ -33,10 +32,8 @@ The Render Docker deployment builds the web client and serves it at `/`, with th
 API available under `/api` on the same origin. No production API URL is compiled
 into the browser bundle.
 
-> `lib/l10n/app_localizations.dart` is **generated** by `flutter gen-l10n`
-> (config in `l10n.yaml`); it is intentionally not committed.
-
 ## Adding a language
-Drop `app_<code>.arb` into `lib/l10n/`, add the `Locale` to `supportedLocales`
-in `main.dart`, and add it to the Settings language list. The backend already
-serves 12 Indian languages via `/api/language/supported`.
+Add the language to the `languages` list and English strings to `strings.dart`;
+add translated values to the appropriate `translations_*.dart` map. The Settings
+language grid is built from that list. The backend also serves 12 Indian
+languages via `/api/language/supported`.

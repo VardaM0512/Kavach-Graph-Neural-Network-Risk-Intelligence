@@ -173,7 +173,7 @@ flowchart TB
 - State is held in a `ChangeNotifier` (`AppState`): auth token, current user, selected locale.
 - The JWT is persisted in `flutter_secure_storage`; `ApiClient` attaches it as a Bearer header.
 - The network graph screen renders the ego graph with `graphview`, colouring nodes by risk band.
-- Localisation uses Flutter ARB files (`app_en.arb`, `app_hi.arb`, `app_ta.arb`); language is
+- Localisation uses the Flutter language tables under `mobile/lib/l10n/`; language is
   switchable at runtime from Settings.
 
 ---
@@ -423,7 +423,7 @@ flowchart LR
 - **`/api/voice/ask`** runs the full loop: transcribe → parse a company id → answer → translate
   → speak.
 - **Multilingual:** 12 Indian languages via `/api/language/supported`; `/api/language/translate`
-  localises any risk text; the web UI is localised through Flutter ARB files. The translation
+  localises any risk text; the web UI is localised through Flutter language tables. The translation
   service falls back builtin-glossary → passthrough so it never hard-fails.
 
 ---

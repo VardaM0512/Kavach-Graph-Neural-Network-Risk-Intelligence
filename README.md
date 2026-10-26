@@ -233,7 +233,7 @@ cross-cutting product pillars — **voice** and **multilingual** support.
 ### 🌐 Multilingual — cross-cutting pillar
 - **12 Indian languages** out of the box: English, हिन्दी, বাংলা, தமிழ், తెలుగు, मराठी, ગુજરાતી, ಕನ್ನಡ, മലയാളം, ਪੰਜਾਬੀ, ଓଡ଼ିଆ, অসমীয়া — `GET /api/language/supported`
 - Translate any risk explanation / alert — `POST /api/language/translate`
-- Web UI localised via Flutter ARB files; explanations localised at the API.
+- Web UI localised via the Flutter language tables; explanations localised at the API.
 - Provider-pluggable (builtin offline glossary / deep-translator / Azure).
 
 ---

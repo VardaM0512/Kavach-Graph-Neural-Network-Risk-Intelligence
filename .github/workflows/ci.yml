@@ -61,5 +61,4 @@ jobs:
       - working-directory: mobile
         run: |
           flutter pub get
-          flutter gen-l10n
           flutter analyze || true   # non-blocking on first scaffold
