@@ -4,12 +4,12 @@
 
 ### Graph Neural Network Corporate Financial Risk Intelligence Platform
 
-*Predict corporate financial distress before it happens — by reading the network, not just the balance sheet.*
+*A web-first corporate risk intelligence platform — read the network, not just the balance sheet.*
 
 ![Python](https://img.shields.io/badge/Python-3.11-3776AB?logo=python&logoColor=white)
 ![PyTorch](https://img.shields.io/badge/PyTorch-Geometric-EE4C2C?logo=pytorch&logoColor=white)
 ![FastAPI](https://img.shields.io/badge/FastAPI-0.110-009688?logo=fastapi&logoColor=white)
-![Flutter](https://img.shields.io/badge/Flutter-3.19-02569B?logo=flutter&logoColor=white)
+![Flutter Web](https://img.shields.io/badge/Flutter-Web-02569B?logo=flutter&logoColor=white)
 ![Supabase](https://img.shields.io/badge/Supabase-Postgres%20%2B%20Auth-3ECF8E?logo=supabase&logoColor=white)
 ![Docker](https://img.shields.io/badge/Docker-ready-2496ED?logo=docker&logoColor=white)
 ![License](https://img.shields.io/badge/License-MIT-green)
@@ -48,12 +48,13 @@ industry peers.
 
 It is not "a GNN notebook". It is a full vertical slice:
 
-> a **Flutter mobile app** → a **FastAPI backend** → a **Graph Neural Network** engine →
+> a **responsive web client** → a **FastAPI backend** → a **Graph Neural Network** engine →
 > **Supabase** (Postgres + auth, row-level security) for user data, with **explainable AI**, **scenario stress
 > testing**, **network-contagion simulation**, a **multilingual voice assistant**, Docker
 > packaging and CI/CD.
 
-Think of it as a pocket-sized Bloomberg-style credit-risk terminal.
+Think of it as a browser-based credit-risk terminal, built for analysts who need
+room to explore company fundamentals, portfolios, scenarios, and network graphs.
 
 ---
 
@@ -117,7 +118,7 @@ neighbourhood. A classifier head turns that into a distress probability.
 
 ```mermaid
 flowchart TB
-    subgraph Client["📱 Flutter App (Android + iOS)"]
+    subgraph Client["🌐 Kavach Web (desktop + mobile browsers)"]
         L[Login / JWT]
         D[Dashboard]
         C[Company Risk]
@@ -224,13 +225,15 @@ cross-cutting product pillars — **voice** and **multilingual** support.
 - **Text-to-Speech**: risk summaries read aloud — `POST /api/voice/tts`
 - **Speech-to-Text**: dictate a query — `POST /api/voice/stt`
 - **Full voice loop**: *speak a question → transcribe → answer → speak the answer* — `POST /api/voice/ask`
-- On-device STT/TTS in the Flutter app (`speech_to_text` + `flutter_tts`) with a
-  server-side pipeline behind it. Providers are pluggable (stub / gTTS / Whisper / Azure / Google) and **degrade gracefully** so the pipeline always returns valid audio.
+- Browser speech recognition and text-to-speech where supported, with the
+  server-side voice pipeline available as well. Providers are pluggable (stub /
+  gTTS / Whisper / Azure / Google); microphone access requires browser permission
+  and a secure HTTPS origin.
 
 ### 🌐 Multilingual — cross-cutting pillar
 - **12 Indian languages** out of the box: English, हिन्दी, বাংলা, தமிழ், తెలుగు, मराठी, ગુજરાતી, ಕನ್ನಡ, മലയാളം, ਪੰਜਾਬੀ, ଓଡ଼ିଆ, অসমীয়া — `GET /api/language/supported`
 - Translate any risk explanation / alert — `POST /api/language/translate`
-- App UI localised via Flutter ARB files; explanations localised at the API.
+- Web UI localised via Flutter ARB files; explanations localised at the API.
 - Provider-pluggable (builtin offline glossary / deep-translator / Azure).
 
 ---
@@ -239,7 +242,7 @@ cross-cutting product pillars — **voice** and **multilingual** support.
 
 | Layer | Technology |
 |---|---|
-| **Mobile** | Flutter · Dart · Provider · Dio · fl_chart · graphview · speech_to_text · flutter_tts |
+| **Web client** | Flutter Web · Dart · Provider · Dio · fl_chart · speech_to_text · flutter_tts |
 | **Backend** | Python · FastAPI · Pydantic · Uvicorn · JWT (python-jose) |
 | **ML core** | PyTorch · **PyTorch Geometric** · scikit-learn · XGBoost / LightGBM |
 | **GNN models** | GCN · GraphSAGE · GAT · **R-GCN (relational)** · **Hybrid GNN+GBDT** · Altman Z-Score baseline |
@@ -256,7 +259,7 @@ cross-cutting product pillars — **voice** and **multilingual** support.
 
 ```mermaid
 sequenceDiagram
-    participant App as 📱 Flutter App
+    participant Web as 🌐 Kavach Web
     participant API as ⚡ FastAPI
     participant Eng as 🧠 RiskEngine
     participant SB as 🗄️ Supabase
@@ -356,7 +359,7 @@ Kavach/
 │   │   ├── core/                config · security(JWT) · ml bridge
 │   │   └── main.py
 │   ├── Dockerfile · tests/
-├── mobile/                      ← Flutter app
+├── mobile/                      ← Flutter web client (historical directory name)
 │   ├── lib/ (screens · widgets · services · state · l10n · theme)
 │   └── pubspec.yaml
 ├── supabase/schema.sql         ← tables + row-level security (run once in Supabase)
@@ -389,12 +392,11 @@ uvicorn app.main:app --reload --port 8010
 docker compose up --build
 ```
 
-### 4. Run the app (web or mobile)
+### 4. Run the web application
 ```bash
 cd mobile
 flutter pub get
 flutter run -d chrome --dart-define=KAVACH_API_BASE=http://localhost:8010
-# Android emulator: --dart-define=KAVACH_API_BASE=http://10.0.2.2:8000
 ```
 
 ### Use your own companies (real data)
@@ -468,8 +470,20 @@ health check at `/api/health`. User data lives in Supabase, so no database is at
 ./scripts/deploy.sh push <your-registry>  # push
 ```
 
-**Mobile:**
+**Web application + API (Render):** `render.yaml` provisions one Docker service.
+The image builds the Flutter web client and serves it from the FastAPI service at
+`/`; API routes remain under `/api`. The web client uses the same origin, so no
+separate CORS or production API URL configuration is required.
+
+To publish, connect this GitHub repository to Render and deploy its Blueprint
+(`render.yaml`). Render assigns the public `onrender.com` URL after deployment;
+add that verified URL here and in the GitHub repository's website field once the
+service is live. Do not treat a predicted service name as a live deployment link.
+
+**Optional Android build:** the existing target can still be packaged, but the
+web application is the primary product:
 ```bash
+cd mobile
 flutter build apk --release --dart-define=KAVACH_API_BASE=https://your-api.example.com
 ```
 

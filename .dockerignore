@@ -1,0 +1,13 @@
+.git
+.github
+.dart_tool
+.pytest_cache
+.venv
+**/__pycache__
+**/*.py[cod]
+mobile/.dart_tool
+mobile/build
+mobile/android/.gradle
+mobile/ios/Pods
+ml/artifacts
+ml/data

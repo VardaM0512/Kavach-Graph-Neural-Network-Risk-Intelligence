@@ -19,7 +19,7 @@ Rapid-fire Q&A and "claims to avoid" guardrails*
 1. [What Kavach Is](#1-what-kavach-is)
 2. [System at a Glance — High-Level Architecture](#2-system-at-a-glance--high-level-architecture)
 3. [The Core Insight — Why a Graph](#3-the-core-insight--why-a-graph)
-4. [Mobile-Side Architecture](#4-mobile-side-architecture)
+4. [Web Client Architecture](#4-web-client-architecture)
 5. [Backend / API Layer](#5-backend--api-layer)
 6. [The Risk Engine — Inference & Analytics Core](#6-the-risk-engine--inference--analytics-core)
 7. [ML Pipeline — Data → Features → Graph → Models](#7-ml-pipeline--data--features--graph--models)
@@ -59,7 +59,7 @@ it is connected to (suppliers, customers, subsidiaries, lenders, industry peers)
 - Multilingual voice assistant (speak a query, hear the answer)
 
 ### Technology stack (from repository)
-- **Mobile:** Flutter + Dart, Provider state, Dio HTTP, fl_chart, graphview
+- **Web client:** Flutter Web + Dart, Provider state, Dio HTTP, fl_chart
 - **Backend:** FastAPI (thin routers) → RiskEngine → Postgres / Neo4j
 - **ML:** PyTorch + PyTorch Geometric (GCN/GraphSAGE/GAT); scikit-learn + XGBoost baselines
 - **Explainability:** SHAP, GNNExplainer / PGExplainer, GAT attention
@@ -70,14 +70,14 @@ it is connected to (suppliers, customers, subsidiaries, lenders, industry peers)
 
 ## 2. System at a Glance — High-Level Architecture
 
-Four layers, top to bottom: a **Flutter client** talks to a **FastAPI route layer**, which
+Four layers, top to bottom: a **responsive Flutter web client** talks to a **FastAPI route layer**, which
 delegates to a **Risk Engine** (all modelling + analytics), which reads from **PostgreSQL +
 Neo4j** (or a self-contained synthetic economy in demo mode).
 
 ```mermaid
 flowchart TB
-    subgraph CLIENT["📱 CLIENT"]
-        FL[Flutter App · Android/iOS]
+    subgraph CLIENT["🌐 WEB CLIENT"]
+        FL[Flutter Web · desktop and mobile browsers]
     end
     subgraph APIL["⚡ FASTAPI ROUTE LAYER (thin controllers)"]
         R1[/auth/]:::r
@@ -111,7 +111,7 @@ flowchart TB
     classDef r fill:#efe7fb,stroke:#8b5cf6;
 ```
 
-**How to narrate this:** "One client — a Flutter app — talks to a FastAPI route layer grouped
+**How to narrate this:** "One web client — built with Flutter Web — talks to a FastAPI route layer grouped
 by concern: auth, companies, predictions, network, scenario, portfolio, explainability,
 language, voice, and ops. Route handlers stay thin and delegate to a single Risk Engine that
 owns all modelling and graph analytics. The engine reads financials from Postgres and
@@ -145,10 +145,12 @@ system runs on a synthetic economy and is *designed* to accept real Postgres/Neo
 
 ---
 
-## 4. Mobile-Side Architecture
+## 4. Web Client Architecture
 
-The Flutter app is a bottom-nav shell hosting workflow modes; each screen calls one or more
-thin API routes through a single `ApiClient`.
+The responsive Flutter web client hosts workflow modes in a desktop sidebar and compact
+mobile-browser navigation. Each screen calls one or more thin API routes through a single
+`ApiClient`. The production Docker image serves the compiled web client and FastAPI from
+one origin; this keeps browser API calls same-origin and avoids a separate frontend service.
 
 ```mermaid
 flowchart TB
@@ -421,7 +423,7 @@ flowchart LR
 - **`/api/voice/ask`** runs the full loop: transcribe → parse a company id → answer → translate
   → speak.
 - **Multilingual:** 12 Indian languages via `/api/language/supported`; `/api/language/translate`
-  localises any risk text; the app UI is localised through Flutter ARB files. The translation
+  localises any risk text; the web UI is localised through Flutter ARB files. The translation
   service falls back builtin-glossary → passthrough so it never hard-fails.
 
 ---
@@ -452,17 +454,20 @@ flowchart LR
     RUN --> HC[/api/health]
     PG[(Managed Postgres)] --> RUN
     NEO[(Neo4j Aura)] --> RUN
-    IMG --> APK["Flutter → APK / Play Store"]
+    IMG --> WEB["Flutter Web → same-origin web client"]
 ```
 
 **Steps**
-1. **Backend image** — `backend/Dockerfile` is a multi-stage build that installs deps, copies
-   `backend` + `ml`, sets `PYTHONPATH`, and serves via Uvicorn with a `/api/health` HEALTHCHECK.
+1. **Web + API image** — `backend/Dockerfile` builds the Flutter web client, installs the
+   backend dependencies, copies `backend` + `ml`, and serves the client and API from one
+   origin. Uvicorn exposes `/api/health` for health checks.
 2. **Full local stack** — `docker compose up --build` starts Postgres + Neo4j + API with init
    scripts mounted.
 3. **Managed deploy** — `render.yaml` provisions the web service + managed Postgres and
    generates the JWT secret; point `KAVACH_NEO4J_URI` at Neo4j Aura.
-4. **Mobile** — `flutter build apk --release --dart-define=KAVACH_API_BASE=https://<api>`.
+4. **Local web build** — `cd mobile && flutter build web --release`. In production, the
+   client uses the deployment's origin for API requests; set `KAVACH_API_BASE` only when
+   developing against a separately hosted backend.
 5. **CI/CD** — `.github/workflows/ci.yml` runs ML tests + comparison, API tests, Docker build,
    and Flutter analyze on every push.
 
@@ -498,14 +503,14 @@ almost any Kavach architecture question.
 ```mermaid
 flowchart TB
     P(["PROBLEM<br/>Companies fail because of their network,<br/>not just their balance sheet"]) --> PROD["PRODUCT<br/>Kavach Risk Intelligence"]
-    PROD --> UI["Flutter App<br/>(dashboard · company · graph · scenario · voice)"]
+    PROD --> UI["Kavach Web<br/>(dashboard · company · graph · scenario · voice)"]
     UI --> API["FastAPI Routes<br/>(thin controllers)"]
     API --> ENG["Risk Engine<br/>(GNN + analytics + XAI)"]
     ENG --> DATA["PostgreSQL + Neo4j<br/>(or synthetic economy)"]
     ENG -.-> MODELS["GCN · GraphSAGE · GAT<br/>vs LogReg · RF · XGBoost"]
 ```
 
-*The one line to keep in your head: problem → product → app → API → engine → data, with graph
+*The one line to keep in your head: problem → product → web client → API → engine → data, with graph
 models as the engine's core.*
 
 ---

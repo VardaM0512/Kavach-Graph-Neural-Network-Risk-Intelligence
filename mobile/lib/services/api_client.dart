@@ -10,7 +10,7 @@ class ApiClient {
 
   ApiClient({String? baseUrl})
       : _dio = Dio(BaseOptions(
-          baseUrl: baseUrl ?? Config.apiBase,
+          baseUrl: baseUrl ?? Config.resolvedApiBase,
           connectTimeout: const Duration(seconds: 20),
           receiveTimeout: const Duration(seconds: 60),
         ));

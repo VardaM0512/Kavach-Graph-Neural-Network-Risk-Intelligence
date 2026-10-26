@@ -1,4 +1,13 @@
-# ---- Kavach backend image (multi-stage) ----
+# ---- Build the primary Flutter web client ----
+FROM ghcr.io/cirruslabs/flutter:stable AS web-build
+
+WORKDIR /repo/mobile
+COPY mobile/pubspec.yaml mobile/pubspec.lock ./
+RUN flutter pub get
+COPY mobile /repo/mobile
+RUN flutter build web --release
+
+# ---- Kavach web + backend image ----
 FROM python:3.11-slim AS base
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
@@ -18,6 +27,7 @@ RUN pip install --extra-index-url https://download.pytorch.org/whl/cpu -r /app/b
 # ---- application code (backend + ml package it imports) ----
 COPY backend /app/backend
 COPY ml /app/ml
+COPY --from=web-build /repo/mobile/build/web /app/web
 
 WORKDIR /app/backend
 ENV PYTHONPATH=/app/backend:/app/ml/src

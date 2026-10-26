@@ -6,7 +6,7 @@
     "background_color": "#0A0B0D",
     "theme_color": "#0A0B0D",
     "description": "Credit risk intelligence for India's corporate network",
-    "orientation": "portrait-primary",
+    "orientation": "any",
     "prefer_related_applications": false,
     "icons": [
         {

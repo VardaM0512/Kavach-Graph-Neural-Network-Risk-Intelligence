@@ -1,6 +1,9 @@
-# Kavach Mobile (Flutter)
+# Kavach Web (Flutter)
 
-Cross-platform (Android + iOS) client for the Kavach Risk Intelligence API.
+The primary analyst experience for Kavach: a responsive web application for desktop
+and mobile browsers, served by the same deployment as the FastAPI backend. The
+project's existing Android target remains available, but web is the supported
+production client.
 
 ## Screens
 - **Login** — JWT auth against `/api/auth/login` (demo: `demo@kavach.ai` / `demo1234`)
@@ -13,18 +16,22 @@ Cross-platform (Android + iOS) client for the Kavach Risk Intelligence API.
 - **Voice** — speak a query, hear a spoken multilingual answer
 - **Settings** — language switch (English / हिन्दी / தமிழ்), sign out
 
-## Run
+## Run locally
 ```bash
 flutter pub get
 flutter gen-l10n            # builds lib/l10n/app_localizations.dart from the .arb files
-# point the app at your backend (Android emulator -> host = 10.0.2.2):
-flutter run --dart-define=KAVACH_API_BASE=http://10.0.2.2:8000
+# point the browser client at your local backend:
+flutter run -d chrome --dart-define=KAVACH_API_BASE=http://localhost:8010
 ```
 
-## Build a release APK
+## Build the web client
 ```bash
-flutter build apk --release --dart-define=KAVACH_API_BASE=https://your-api.example.com
+flutter build web --release
 ```
+
+The Render Docker deployment builds the web client and serves it at `/`, with the
+API available under `/api` on the same origin. No production API URL is compiled
+into the browser bundle.
 
 > `lib/l10n/app_localizations.dart` is **generated** by `flutter gen-l10n`
 > (config in `l10n.yaml`); it is intentionally not committed.

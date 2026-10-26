@@ -91,8 +91,7 @@ class _AskKavachDialogState extends State<AskKavachDialog> {
     final lang = langOf(context.read<AppState>().lang);
     setState(() => _listening = true);
     await _stt.listen(
-      localeId: lang.speech,
-      listenOptions: SpeechListenOptions(partialResults: true),
+      listenOptions: SpeechListenOptions(partialResults: true, localeId: lang.speech),
       onResult: (r) {
         setState(() => _input.text = r.recognizedWords);
         if (r.finalResult) {

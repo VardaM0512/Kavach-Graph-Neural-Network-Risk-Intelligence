@@ -1,4 +1,4 @@
-# One-click backend deploy on Render (https://render.com).
+# One-click Kavach web + API deploy on Render (https://render.com).
 # The API is stateless; accounts and user data live in Supabase.
 services:
   - type: web

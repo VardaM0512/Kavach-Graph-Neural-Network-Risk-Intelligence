@@ -6,6 +6,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))          # backend/
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "ml" / "src"))
 
 from fastapi.testclient import TestClient
+from app import main as app_module
 from app.main import app
 
 client = TestClient(app)
@@ -19,6 +20,26 @@ def _token():
 
 def test_health():
     assert client.get("/api/health").json()["status"] == "ok"
+
+
+def test_root_describes_api_when_web_build_is_not_present():
+    response = client.get("/")
+    assert response.status_code == 200
+    assert response.json()["health"] == "/api/health"
+
+
+def test_web_client_serves_assets_and_spa_routes(tmp_path, monkeypatch):
+    index = tmp_path / "index.html"
+    index.write_text("<html>web app</html>", encoding="utf-8")
+    (tmp_path / "main.dart.js").write_text("compiled app", encoding="utf-8")
+    monkeypatch.setattr(app_module, "web_dir", tmp_path)
+    monkeypatch.setattr(app_module, "web_index", index)
+
+    assert client.get("/").text == "<html>web app</html>"
+    assert client.get("/overview").text == "<html>web app</html>"
+    assert client.get("/main.dart.js").text == "compiled app"
+    assert client.get("/api/not-a-route").status_code == 404
+    assert client.get("/missing.js").status_code == 404
 
 
 def test_auth_and_company_flow():
